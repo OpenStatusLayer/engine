@@ -1,0 +1,308 @@
+openapi: 3.1.0
+info:
+  title: OpenStatusLayer API
+  version: 0.1.0
+  description: >-
+    Canonical contract for the OpenStatusLayer engine. Dependency-aware service
+    status intelligence. This spec is the source of truth for the engine<->web
+    boundary; the web app generates its types from it.
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+servers:
+  - url: http://localhost:8080
+    description: Local dev
+tags:
+  - name: health
+  - name: systems
+  - name: services
+  - name: dependencies
+  - name: status
+  - name: incidents
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Liveness probe
+      responses:
+        '200':
+          description: Process is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, const: ok }
+  /ready:
+    get:
+      tags: [health]
+      summary: Readiness probe (dependencies reachable)
+      responses:
+        '200': { description: Ready }
+        '503': { description: Not ready }
+  /systems:
+    get:
+      tags: [systems]
+      summary: List systems
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/System' }
+    post:
+      tags: [systems]
+      summary: Create a system
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SystemInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/System' }
+  /services:
+    get:
+      tags: [services]
+      summary: List services
+      parameters:
+        - in: query
+          name: systemId
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Service' }
+    post:
+      tags: [services]
+      summary: Create a service
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ServiceInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Service' }
+  /services/{id}:
+    get:
+      tags: [services]
+      summary: Get a service
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Service' }
+        '404': { description: Not found }
+  /dependencies:
+    get:
+      tags: [dependencies]
+      summary: List dependency edges
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Dependency' }
+    post:
+      tags: [dependencies]
+      summary: Create a dependency edge (service depends on another)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DependencyInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Dependency' }
+  /status:
+    get:
+      tags: [status]
+      summary: Current dependency-aware status for all services
+      description: >-
+        Returns the derived status graph: each service with its direct status
+        (from checks) and derived status (after dependency propagation), plus the
+        blast radius of impacted services.
+      parameters:
+        - in: query
+          name: systemId
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StatusGraph' }
+  /ingest:
+    post:
+      tags: [status]
+      summary: Push a status signal for a service (webhook ingestion)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CheckSignal' }
+      responses:
+        '202': { description: Accepted }
+  /incidents:
+    get:
+      tags: [incidents]
+      summary: List incidents
+      parameters:
+        - in: query
+          name: systemId
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Incident' }
+    post:
+      tags: [incidents]
+      summary: Post an incident
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IncidentInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Incident' }
+components:
+  schemas:
+    Status:
+      type: string
+      enum: [operational, degraded, down]
+    System:
+      type: object
+      required: [id, key, name, isPublic]
+      properties:
+        id: { type: string, format: uuid }
+        key: { type: string }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        isPublic: { type: boolean }
+    SystemInput:
+      type: object
+      required: [key, name]
+      properties:
+        key: { type: string }
+        name: { type: string }
+        description: { type: string }
+        isPublic: { type: boolean, default: false }
+    Service:
+      type: object
+      required: [id, key, name, checkType]
+      properties:
+        id: { type: string, format: uuid }
+        systemId: { type: string, format: uuid, nullable: true }
+        key: { type: string }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        checkUrl: { type: string, nullable: true }
+        checkType: { type: string, enum: [http, tcp, push] }
+    ServiceInput:
+      type: object
+      required: [key, name]
+      properties:
+        systemId: { type: string, format: uuid }
+        key: { type: string }
+        name: { type: string }
+        description: { type: string }
+        checkUrl: { type: string }
+        checkType: { type: string, enum: [http, tcp, push], default: http }
+    Dependency:
+      type: object
+      required: [id, serviceId, dependsOnId, kind]
+      properties:
+        id: { type: string, format: uuid }
+        serviceId: { type: string, format: uuid }
+        dependsOnId: { type: string, format: uuid }
+        kind: { type: string, enum: [hard, soft] }
+    DependencyInput:
+      type: object
+      required: [serviceId, dependsOnId]
+      properties:
+        serviceId: { type: string, format: uuid }
+        dependsOnId: { type: string, format: uuid }
+        kind: { type: string, enum: [hard, soft], default: hard }
+    CheckSignal:
+      type: object
+      required: [serviceKey, status]
+      properties:
+        serviceKey: { type: string }
+        status: { $ref: '#/components/schemas/Status' }
+        latencyMs: { type: integer }
+        detail: { type: object, additionalProperties: true }
+    ServiceStatus:
+      type: object
+      required: [serviceId, directStatus, derivedStatus]
+      properties:
+        serviceId: { type: string, format: uuid }
+        directStatus: { $ref: '#/components/schemas/Status' }
+        derivedStatus: { $ref: '#/components/schemas/Status' }
+        reason: { type: string, nullable: true }
+        blastRadius:
+          type: array
+          items: { type: string, format: uuid }
+    StatusGraph:
+      type: object
+      required: [services, edges]
+      properties:
+        computedAt: { type: string, format: date-time }
+        services:
+          type: array
+          items: { $ref: '#/components/schemas/ServiceStatus' }
+        edges:
+          type: array
+          items: { $ref: '#/components/schemas/Dependency' }
+    Incident:
+      type: object
+      required: [id, title, severity, status, startedAt]
+      properties:
+        id: { type: string, format: uuid }
+        systemId: { type: string, format: uuid, nullable: true }
+        title: { type: string }
+        body: { type: string, nullable: true }
+        severity: { type: string, enum: [minor, major, critical] }
+        status: { type: string, enum: [investigating, identified, monitoring, resolved] }
+        startedAt: { type: string, format: date-time }
+        resolvedAt: { type: string, format: date-time, nullable: true }
+    IncidentInput:
+      type: object
+      required: [title]
+      properties:
+        systemId: { type: string, format: uuid }
+        title: { type: string }
+        body: { type: string }
+        severity: { type: string, enum: [minor, major, critical], default: minor }
+        status: { type: string, enum: [investigating, identified, monitoring, resolved], default: investigating }
