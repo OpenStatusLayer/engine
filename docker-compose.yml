@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: osl
+      POSTGRES_PASSWORD: osl
+      POSTGRES_DB: openstatuslayer
+    ports:
+      - "5432:5432"
+    volumes:
+      - osl_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U osl"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  engine:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://osl:osl@db:5432/openstatuslayer
+      PORT: "8080"
+      HOST: 0.0.0.0
+    ports:
+      - "8080:8080"
+
+volumes:
+  osl_pgdata:
