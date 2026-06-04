@@ -8,28 +8,12 @@ on:
 jobs:
   build-test:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: osl
-          POSTGRES_PASSWORD: osl
-          POSTGRES_DB: openstatuslayer
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd "pg_isready -U osl"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      DATABASE_URL: postgres://osl:osl@localhost:5432/openstatuslayer
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-      - run: npm ci
+      - run: npm install --no-audit --no-fund
       - run: npm run lint
       - run: npm run build
       - run: npm test
