@@ -66,6 +66,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/System' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /services:
     get:
       tags: [services]
@@ -82,6 +84,7 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/Service' }
+        '400': { $ref: '#/components/responses/BadRequest' }
     post:
       tags: [services]
       summary: Create a service
@@ -96,6 +99,9 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Service' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /services/{id}:
     get:
       tags: [services]
@@ -111,7 +117,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Service' }
-        '404': { description: Not found }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /dependencies:
     get:
       tags: [dependencies]
@@ -138,6 +145,9 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Dependency' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /status:
     get:
       tags: [status]
@@ -198,7 +208,28 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Incident' }
 components:
+  responses:
+    BadRequest:
+      description: Invalid input (missing field, malformed id, or bad value)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: The resource, or a resource it references, does not exist
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: A resource with the same unique key already exists
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
   schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string, description: Human-readable message }
     Status:
       type: string
       enum: [operational, degraded, down]

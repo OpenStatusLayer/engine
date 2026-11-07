@@ -65,6 +65,48 @@ describe.runIf(runDb)('CRUD + dependency graph', () => {
     expect(dep.statusCode).toBe(400);
   });
 
+  it('returns 409 for a duplicate service key', async () => {
+    const key = `dup-${Date.now()}`;
+    const first = await app.inject({ method: 'POST', url: '/services', payload: { key, name: 'Dup' } });
+    expect(first.statusCode).toBe(201);
+    const second = await app.inject({ method: 'POST', url: '/services', payload: { key, name: 'Dup' } });
+    expect(second.statusCode).toBe(409);
+    expect(second.json()).toEqual({ error: 'key already exists' });
+  });
+
+  it('returns 409 for a duplicate dependency edge', async () => {
+    const a = await app.inject({ method: 'POST', url: '/services', payload: { key: `ea-${Date.now()}`, name: 'A' } });
+    const b = await app.inject({ method: 'POST', url: '/services', payload: { key: `eb-${Date.now()}`, name: 'B' } });
+    const payload = { serviceId: a.json().id, dependsOnId: b.json().id };
+    expect((await app.inject({ method: 'POST', url: '/dependencies', payload })).statusCode).toBe(201);
+    expect((await app.inject({ method: 'POST', url: '/dependencies', payload })).statusCode).toBe(409);
+  });
+
+  it('returns 404 when a dependency references an unknown service', async () => {
+    const s = await app.inject({ method: 'POST', url: '/services', payload: { key: `fk-${Date.now()}`, name: 'FK' } });
+    const dep = await app.inject({
+      method: 'POST',
+      url: '/dependencies',
+      payload: { serviceId: s.json().id, dependsOnId: '00000000-0000-0000-0000-000000000000' },
+    });
+    expect(dep.statusCode).toBe(404);
+    expect(dep.json()).toEqual({ error: 'referenced depends_on_id does not exist' });
+  });
+
+  it('returns 404 when a service references an unknown system', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/services',
+      payload: { key: `nosys-${Date.now()}`, name: 'X', systemId: '00000000-0000-0000-0000-000000000000' },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('returns 400 for a malformed id or systemId', async () => {
+    expect((await app.inject({ method: 'GET', url: '/services/not-a-uuid' })).statusCode).toBe(400);
+    expect((await app.inject({ method: 'GET', url: '/services?systemId=nope' })).statusCode).toBe(400);
+  });
+
   it('returns 404 for an unknown service', async () => {
     const res = await app.inject({
       method: 'GET',
