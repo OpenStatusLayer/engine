@@ -46,6 +46,11 @@ export async function getService(id: string): Promise<Service | null> {
   return rows[0] ? map(rows[0]) : null;
 }
 
+export async function getServiceByKey(key: string): Promise<Service | null> {
+  const { rows } = await pool.query<ServiceRow>('SELECT * FROM services WHERE key = $1', [key]);
+  return rows[0] ? map(rows[0]) : null;
+}
+
 export async function createService(input: {
   systemId?: string;
   key: string;

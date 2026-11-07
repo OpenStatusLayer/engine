@@ -154,8 +154,13 @@ paths:
       summary: Current dependency-aware status for all services
       description: >-
         Returns the derived status graph: each service with its direct status
-        (from checks) and derived status (after dependency propagation), plus the
-        blast radius of impacted services.
+        (its latest check or pushed signal; operational if none yet) and derived
+        status (after dependency propagation), plus the blast radius of impacted
+        services. A down hard dependency makes the dependent down; a degraded
+        hard dependency, or any unhealthy soft dependency, makes it degraded.
+        Propagation is transitive. blastRadius lists the other services an
+        unhealthy service impairs on its own. systemId filters the output;
+        propagation always uses the whole graph.
       parameters:
         - in: query
           name: systemId
@@ -166,10 +171,14 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/StatusGraph' }
+        '400': { $ref: '#/components/responses/BadRequest' }
   /ingest:
     post:
       tags: [status]
       summary: Push a status signal for a service (webhook ingestion)
+      description: >-
+        Records the signal as the service's latest direct status. It counts
+        toward /status immediately. Unknown serviceKey returns 404.
       requestBody:
         required: true
         content:
@@ -177,6 +186,8 @@ paths:
             schema: { $ref: '#/components/schemas/CheckSignal' }
       responses:
         '202': { description: Accepted }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /incidents:
     get:
       tags: [incidents]

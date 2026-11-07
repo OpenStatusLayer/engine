@@ -4,6 +4,7 @@ import { healthRoutes } from './routes/health.js';
 import { systemRoutes } from './routes/systems.js';
 import { serviceRoutes } from './routes/services.js';
 import { dependencyRoutes } from './routes/dependencies.js';
+import { statusRoutes } from './routes/status.js';
 import { registerErrorHandler } from './errors.js';
 
 export function build() {
@@ -13,6 +14,7 @@ export function build() {
   app.register(systemRoutes);
   app.register(serviceRoutes);
   app.register(dependencyRoutes);
+  app.register(statusRoutes);
   return app;
 }
 
