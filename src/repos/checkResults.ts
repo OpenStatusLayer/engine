@@ -32,3 +32,13 @@ export async function latestCheckResult(
   );
   return rows[0] ? { status: rows[0].status, latencyMs: rows[0].latency_ms } : null;
 }
+
+/** Latest status per service, across both synthetic and pushed results. */
+export async function latestStatuses(): Promise<Map<string, Status>> {
+  const { rows } = await pool.query<{ service_id: string; status: Status }>(
+    `SELECT DISTINCT ON (service_id) service_id, status
+       FROM check_results
+      ORDER BY service_id, observed_at DESC, id DESC`,
+  );
+  return new Map(rows.map((r) => [r.service_id, r.status]));
+}
