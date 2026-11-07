@@ -11,6 +11,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "migrate": "tsx scripts/migrate.ts",
+    "seed": "tsx scripts/seed.ts",
+    "worker": "tsx src/worker.ts",
     "lint": "eslint . --ext .ts",
     "test": "vitest run"
   },
